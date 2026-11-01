@@ -86,27 +86,17 @@ int FormMillToolSimulation()
         Ptr<Setups> DocCAMSetups = DocCAM->setups(); if (!DocCAMSetups) return false;
         Ptr<Setup> ActiveSetup = DocCAMSetups->item(0); if (!ActiveSetup) return false;
         
-        Ptr<Occurrence> CAMDesignOccurr = DocCAM->designRootOccurrence(); if (!CAMDesignOccurr) return false;
         
-        Ptr<ManufacturingModels> ManufModels = DocCAM->manufacturingModels(); if (!ManufModels) return false;
         
-        Ptr<ManufacturingModel> ManufModel = ManufModels->item(0); if (!ManufModel) return false;
         
-        Ptr<Occurrence> ManufModelOccurr = ManufModel->occurrence()->childOccurrences()->item(0); if (!ManufModelOccurr) return false;
         
-        string ocurrname = ManufModelOccurr->name();
-        Ptr<BRepBody> StockBody = ManufModelOccurr->bRepBodies()->itemByName("BRUTE"); if (!StockBody) return false;
-        Ptr<BRepBody> MachinedBody = ManufModelOccurr->bRepBodies()->itemByName("MACHINED"); if (!MachinedBody) return false;
-        std::vector<Ptr<Base>> StockBodyList = {StockBody };
-        std::vector<Ptr<Base>> MachinedBodyList = {MachinedBody };
         
-        Ptr<CAMManager> CamMgr = CAMManager::get();
-        Ptr<CAMLibraryManager> CamLibMgr = CamMgr->libraryManager();
-        Ptr<MachineLibrary> MachineLib = CamLibMgr->machineLibrary();
-        Ptr<URL> MachineLibraryURL = MachineLib->urlByLocation(LibraryLocations::CloudLibraryLocation);
         
-        std::vector<Ptr<Machine>> Machines = MachineLib->childMachines(MachineLibraryURL);
-        string MachineModel;
+        
+        
+        
+        
+        
         
         
                 
