@@ -1,0 +1,2 @@
+Copy Files in $APPDATA\Autodesk\Autodesk Fusion 360\API\AddIns\FormMillToolsSimulation  Folder
+$APPDATA=C:\Users\XXX\AppData\Roaming

@@ -1,0 +1,14 @@
+{
+	"autodeskProduct":	"Fusion",
+	"type":	"addin",
+	"author":	"",
+	"description":	{
+		"":	"Simulation with Form Mill Tools"
+	},
+	"supportedOS":	"windows",
+	"version":	"",
+	"editEnabled":	true,
+	"iconFilename":	"AddInIcon.svg",
+	"runOnStartup":	false,
+	"sourcewindows":	"FormMillToolsSimulation.vcxproj"
+}
