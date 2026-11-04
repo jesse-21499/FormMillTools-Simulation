@@ -52,8 +52,22 @@ class SimulatTerminatedHandler : public adsk::core::ApplicationCommandEventHandl
 {public:
     void notify(const Ptr<ApplicationCommandEventArgs>& eventArgs) override
     {
-        // This fires when simulation's panel closes
         
+        
+        
+        if (eventArgs->commandId() == "FormMillToolsSimulation")
+        {// Execute the command to open the simulation UI player for the user
+            
+            Ptr<CommandDefinition> simCmd = ui->commandDefinitions()->itemById("IronSimulation");
+
+            if (simCmd)
+            {
+                simCmd->execute();
+
+            }
+
+        }
+        // This fires when simulation's panel closes
         if (eventArgs->commandId() == "IronSimulation")
         {
             CleanSimulatOperations();
@@ -71,14 +85,7 @@ class CommandExecutedHandler : public adsk::core::CommandEventHandler
      {
          FormMillToolSimulation();
          
-         // Execute the command to open the simulation UI player for the user
-        Ptr<CommandDefinition> simCmd = ui->commandDefinitions()->itemById("IronSimulation");
-
-         if (simCmd)
-         {
-             simCmd->execute();
-
-         }
+         
      }
          
       
@@ -131,3 +138,4 @@ private:
 
 } onCommandCreatedOnQAT;
 static SimulatTerminatedHandler onSimulatTerminatedHandler_;
+//static std::vector<int> OperWithFormMillToolIndexes;

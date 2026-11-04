@@ -1,8 +1,5 @@
-﻿#pragma once
-
 #include "FormMillToolsSimulation.h"
-#include <chrono>
-#include <thread>
+
 
 extern "C" XI_EXPORT bool run(const char* context)
 {   app = Application::get(); if (!app) return false;
@@ -70,12 +67,7 @@ extern "C" XI_EXPORT bool stop(const char* context)
 int FormMillToolSimulation()
 {
     try
-    { 
-        
-        ////////////////////////////////////////////////////// CAM Environment //////////////////////////////////////////////////////
-        
-              
-        
+    {   
         Ptr<Document> ActiveDoc = app->activeDocument(); if (!ActiveDoc) return false;
         Ptr<Workspace> ManufEnvirWorkSpace = ui->workspaces()->itemById("CAMEnvironment"); if (!ManufEnvirWorkSpace) return false;
         ManufEnvirWorkSpace->activate();
@@ -85,41 +77,56 @@ int FormMillToolSimulation()
         Ptr<CAM> DocCAM = Ptr<CAM>(DocCAMProduct); if (!DocCAM) return false;
         Ptr<Setups> DocCAMSetups = DocCAM->setups(); if (!DocCAMSetups) return false;
         Ptr<Setup> ActiveSetup = DocCAMSetups->item(0); if (!ActiveSetup) return false;
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-                
         Ptr<OperationBase> SetupOper = nullptr;
         Ptr<OperationBase> SetupSimulOper = nullptr;
         string SetupOperName;
         string SetupSImulOperName;
-        for (int i=0;i< ActiveSetup->operations()->count();i++)
+        double OpBotHeightOffset = 0;
+        double OpToolTipOffset = 0;
+        Ptr<FloatParameterValue> OpBotHeightOffsetParVal = nullptr;
+        Ptr<FloatParameterValue> SimulatOpBotHeightOffsetParVal = nullptr;
+        //Ptr<FloatParameterValue> OpToolTipOffsetParVal = nullptr;
+        int SetupOpersNum = (int)ActiveSetup->operations()->count();
+        
+        int SetupOpersWithFormMillTool = 0;
+        for (int i=0;i< SetupOpersNum;i++)
         {SetupOper = ActiveSetup->operations()->item(i);
-         
-         if ((SetupOper->parameters()->itemByName("tool_type")->expression() == "'form mill'") && (stoi(SetupOper->parameters()->itemByName("tool_tipOffset")->expression()) > 0) && (stod(SetupOper->parameters()->itemByName("bottomHeight_offset")->expression())>0) )
+        if (SetupOper->parameters()->itemByName("operation_description")->expression().find("Contour")==-1) continue;
+        if (SetupOper->parameters()->itemByName("tool_tipOffset") !=nullptr) OpToolTipOffset = ((Ptr<FloatParameterValue>)SetupOper->parameters()->itemByName("tool_tipOffset")->value())->value(); //Unit cm
+        if (SetupOper->parameters()->itemByName("bottomHeight_offset") != nullptr)
+        {
+            OpBotHeightOffsetParVal = (Ptr<FloatParameterValue>)SetupOper->parameters()->itemByName("bottomHeight_offset")->value();
+            OpBotHeightOffset = OpBotHeightOffsetParVal->value();//Unit cm
+
+        }
+        if (SetupOper->parameters()->itemByName("tool_type")->expression() == "'form mill'" && OpToolTipOffset>0)
         {if (!SetupOper->duplicate()) return false;
+         SetupOpersNum++;
+         //OperWithFormMillToolIndexes.push_back(i);
+         SetupOpersWithFormMillTool++;
+         
          SetupSimulOper = ActiveSetup->operations()->item(i + 1);
          SetupSimulOper->name(SetupOper->name() + "-SIMUL");
-         SetupSimulOper->parameters()->itemByName("bottomHeight_offset")->expression("0");
-         DocCAM->generateToolpath(SetupSimulOper);
-         SetupOper->isSuppressed(true);
-         DocCAM->generateToolpath(SetupOper);
+         SimulatOpBotHeightOffsetParVal = (Ptr<FloatParameterValue>)SetupSimulOper->parameters()->itemByName("bottomHeight_offset")->value();
+         SimulatOpBotHeightOffsetParVal->value(OpBotHeightOffset - OpToolTipOffset); //Unit cm
+         //SetupSimulOper->parameters()->itemByName("bottomHeight_offset")->expression()
          
+         DocCAM->generateToolpath(SetupSimulOper);
+         ui->messageBox("WAIT UNTIL OPERATION GENERATES");
+         SetupOper->isSuppressed(true);
+         
+         
+
+         i++;
+        
         }
         }
         
-        ui->activeSelections()->add(ActiveSetup);
+        
+        if (!DocCAM->checkAllToolpaths()) DocCAM->generateAllToolpaths(true);
+        
+        
+        
             
         
         
@@ -163,14 +170,30 @@ int CleanSimulatOperations()
         Ptr<OperationBase> SetupSimulOper = nullptr;
         string SetupOperName;
         string SetupSImulOperName;
+        //Ptr<FloatParameterValue> OpBotHeightOffsetParVal = nullptr;
+        //double OpBotHeightOffset = 0;
+        double OpToolTipOffset = 0;
+        Ptr<FloatParameterValue> OpToolTipOffsetParVal = nullptr;
+        //for (int j = 0; j < OperWithFormMillToolIndexes.size(); j++)
         for (int j = 0; j < ActiveSetup->operations()->count(); j++)
+
         {
             SetupOper = ActiveSetup->operations()->item(j);
-            if (SetupOper->isSuppressed() && (SetupOper->parameters()->itemByName("tool_type")->expression() == "'form mill'") && (stoi(SetupOper->parameters()->itemByName("tool_tipOffset")->expression()) > 0) && (stod(SetupOper->parameters()->itemByName("bottomHeight_offset")->expression()) > 0))
+            if (SetupOper->parameters()->itemByName("tool_type")->expression() != "'form mill'") continue;
+            OpToolTipOffsetParVal = (Ptr<FloatParameterValue>)SetupOper->parameters()->itemByName("tool_tipOffset")->value();
+            OpToolTipOffset = OpToolTipOffsetParVal->value();//Unit cm
+
+            if (SetupOper->isSuppressed() && (SetupOper->parameters()->itemByName("tool_type")->expression() == "'form mill'") && OpToolTipOffset > 0)
+            {
                 SetupOper->isSuppressed(false);
-            DocCAM->generateToolpath(SetupOper);
-            if ((SetupOper->name().find("-SIMUL") != -1) && (SetupOper->parameters()->itemByName("tool_type")->expression() == "'form mill'") && (stoi(SetupOper->parameters()->itemByName("bottomHeight_offset")->expression()) == 0))
+                DocCAM->generateToolpath(SetupOper);
+            }
+            if ((SetupOper->name().find("-SIMUL") != -1) && (SetupOper->parameters()->itemByName("tool_type")->expression() == "'form mill'") && OpToolTipOffset > 0)
                 SetupOper->deleteMe();
+
+
+
+
         }
     }
     catch (std::exception* e)
