@@ -7,6 +7,8 @@
 
 #include <Core/UserInterface/CommandEventHandler.h>
 #include <Core/UserInterface/Command.h>
+#include <Core/UserInterface/CommandInputs.h>
+#include <Core/UserInterface/BoolValueCommandInput.h>
 #include <Core/UserInterface/CommandEvent.h>
 #include <Core/Application/Events.h>
 #include <Core/UserInterface/CommandEventArgs.h>
@@ -36,6 +38,7 @@
 #include <Core/UserInterface/Palette.h>
 #include <Core/UserInterface/Palettes.h>
 #include <Core/UserInterface/TextCommandPalette.h>
+#include <Core/UserInterface/ProgressDialog.h>
 
 using namespace adsk::core;
 using namespace adsk::fusion;
@@ -45,30 +48,25 @@ using namespace std;
 
 Ptr<Application> app;
 Ptr<UserInterface> ui;
-int FormMillToolSimulation();
+
+Ptr<GenerateToolpathFuture> GenToolPathChecker = nullptr;
+int FormMillToolSimulation(bool SimulateWithMachine);
 int CleanSimulatOperations();
 
-class SimulatTerminatedHandler : public adsk::core::ApplicationCommandEventHandler
+class CommandTerminatedHandler : public adsk::core::ApplicationCommandEventHandler
 {public:
     void notify(const Ptr<ApplicationCommandEventArgs>& eventArgs) override
-    {
-        
-        
-        
-        if (eventArgs->commandId() == "FormMillToolsSimulation")
-        {// Execute the command to open the simulation UI player for the user
-            
-            Ptr<CommandDefinition> simCmd = ui->commandDefinitions()->itemById("IronSimulation");
-
-            if (simCmd)
-            {
-                simCmd->execute();
-
+    {if (eventArgs->commandId() == "FormMillToolsSimulation")
+        {   bool RegenIsFinished = GenToolPathChecker->isGenerationCompleted();
+            while (!RegenIsFinished)
+            {_sleep(500);
+             RegenIsFinished = GenToolPathChecker->isGenerationCompleted();
             }
-
+            
+          
         }
         // This fires when simulation's panel closes
-        if (eventArgs->commandId() == "IronSimulation")
+        if (eventArgs->commandId() == "IronSimulation" || eventArgs->commandId() == "IronMachineSimulation")
         {
             CleanSimulatOperations();
         }
@@ -82,9 +80,15 @@ class CommandExecutedHandler : public adsk::core::CommandEventHandler
      Ptr<Command> command = firingEvent->sender(); if (!command) return;
      Ptr<CommandDefinition> parentDefinition = command->parentCommandDefinition(); if (!parentDefinition) return;
      if (parentDefinition->id() == "FormMillToolsSimulation")
-     {
-         FormMillToolSimulation();
-         
+     {  Ptr<Command> command = eventArgs->firingEvent()->sender(); if (!command) return;
+         Ptr<CommandInputs> inputs = command->commandInputs();
+         Ptr<BoolValueCommandInput> SimulateWithMachine = inputs->itemById("SimulWithMachineId");
+         if (SimulateWithMachine->value() == false)
+         {FormMillToolSimulation(false);
+         }
+         if (SimulateWithMachine->value() == true)
+         {FormMillToolSimulation(true);
+         }
          
      }
          
@@ -97,21 +101,12 @@ class CommandCreatedHandler : public CommandCreatedEventHandler
 {
 public:
     void notify(const Ptr<CommandCreatedEventArgs>& eventArgs) override
-    {
-        auto command = eventArgs->command();
-        
-        
-        
+    {//Ptr<Command> command = eventArgs->command(); if (!command) return;
         // Define the inputs.
-        auto inputs = command->commandInputs();
-        if (inputs)
-        {
-
-            
-            if (command->parentCommandDefinition()->id() == "FormMillToolsSimulation") FormMillToolSimulation();
-            
-            
-        }
+        //Ptr<CommandInputs> inputs = command->commandInputs();
+        //if (inputs)
+        //{if (command->parentCommandDefinition()->id() == "FormMillToolsSimulation") FormMillToolSimulation();
+        //}
     }
 
     
@@ -126,7 +121,9 @@ public:
             Ptr<Command> command = eventArgs->command();if (!command) return;
             Ptr<CommandEvent> exec = command->execute();if (!exec) return;
             exec->add(&onCommandExecuted_);
-            
+            Ptr<CommandInputs> inputs = command->commandInputs();
+            Ptr<BoolValueCommandInput> SimulateWithMachine = inputs->addBoolValueInput("SimulWithMachineId", "SIMULATE WITH MACHINE", true, "", false);
+
              
         }
     }
@@ -137,5 +134,6 @@ private:
     
 
 } onCommandCreatedOnQAT;
-static SimulatTerminatedHandler onSimulatTerminatedHandler_;
-//static std::vector<int> OperWithFormMillToolIndexes;
+static CommandTerminatedHandler onCommandTerminatedHandler_;
+static std::vector<int> OperIdsWithFormMillTool;
+static std::vector<int> TemporarySimulatOperIds;

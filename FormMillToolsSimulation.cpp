@@ -24,11 +24,11 @@ extern "C" XI_EXPORT bool run(const char* context)
         btnCmdCreatedEvent->add(&onCommandCreatedOnQAT);
         btnCmdToolbarCtlQAT = toolbarControlsQAT->addCommand(btnCmdDefinitionQAT); if (!btnCmdToolbarCtlQAT)  return false;
         btnCmdToolbarCtlQAT->isVisible(true);
-        //ui->messageBox("A demo button command is successfully added to the Quick Access Toolbar");
+        
         
         
     }
-    ui->commandTerminated()->add(&onSimulatTerminatedHandler_);
+    ui->commandTerminated()->add(&onCommandTerminatedHandler_);
     return true;
 }
 
@@ -57,14 +57,14 @@ extern "C" XI_EXPORT bool stop(const char* context)
     //if(listCmdToolbarCtlQAT) listCmdToolbarCtlQAT->deleteMe();
     if (btnCmdDefinitionQAT) btnCmdDefinitionQAT->deleteMe();
     
-    ui->commandTerminated()->remove(&onSimulatTerminatedHandler_); 
+    ui->commandTerminated()->remove(&onCommandTerminatedHandler_); 
     if (ui) ui = nullptr;
     
     return true;
 }
 
 
-int FormMillToolSimulation()
+int FormMillToolSimulation(bool SimulateWithMachine)
 {
     try
     {   
@@ -76,7 +76,13 @@ int FormMillToolSimulation()
         Ptr<Product> DocCAMProduct = DocProducts->itemByProductType("CAMProductType"); if (!DocCAMProduct) { ui->messageBox("THERE ARE NO CAM Operations in the Active Document"); return false; }
         Ptr<CAM> DocCAM = Ptr<CAM>(DocCAMProduct); if (!DocCAM) return false;
         Ptr<Setups> DocCAMSetups = DocCAM->setups(); if (!DocCAMSetups) return false;
-        Ptr<Setup> ActiveSetup = DocCAMSetups->item(0); if (!ActiveSetup) return false;
+        Ptr<Selections> ActiveSelects = ui->activeSelections(); if (!ActiveSelects) return false;
+        Ptr<Setup> ActiveSetup = nullptr;
+        if (ActiveSelects && ui->activeSelections()->count() > 0) 
+        {Ptr<Base> selectedObject = ui->activeSelections()->item(0)->entity();
+         ActiveSetup = selectedObject;
+        }
+        //else { ui->messageBox("SELECT SETUP"); return false;}
         Ptr<OperationBase> SetupOper = nullptr;
         Ptr<OperationBase> SetupSimulOper = nullptr;
         string SetupOperName;
@@ -86,12 +92,18 @@ int FormMillToolSimulation()
         Ptr<FloatParameterValue> OpBotHeightOffsetParVal = nullptr;
         Ptr<FloatParameterValue> SimulatOpBotHeightOffsetParVal = nullptr;
         //Ptr<FloatParameterValue> OpToolTipOffsetParVal = nullptr;
+        
+        Ptr<ProgressDialog> PrgDlg = nullptr;
+        
         int SetupOpersNum = (int)ActiveSetup->operations()->count();
+        PrgDlg = ui->createProgressDialog();
+        PrgDlg->show("GENERATING TEMPORARY OPERATIONS", "%v OPERATIONS (%p%)", 0, SetupOpersNum);
         
         int SetupOpersWithFormMillTool = 0;
         for (int i=0;i< SetupOpersNum;i++)
         {SetupOper = ActiveSetup->operations()->item(i);
-        if (SetupOper->parameters()->itemByName("operation_description")->expression().find("Contour")==-1) continue;
+         PrgDlg->progressValue(i);
+        
         if (SetupOper->parameters()->itemByName("tool_tipOffset") !=nullptr) OpToolTipOffset = ((Ptr<FloatParameterValue>)SetupOper->parameters()->itemByName("tool_tipOffset")->value())->value(); //Unit cm
         if (SetupOper->parameters()->itemByName("bottomHeight_offset") != nullptr)
         {
@@ -102,36 +114,39 @@ int FormMillToolSimulation()
         if (SetupOper->parameters()->itemByName("tool_type")->expression() == "'form mill'" && OpToolTipOffset>0)
         {if (!SetupOper->duplicate()) return false;
          SetupOpersNum++;
-         //OperWithFormMillToolIndexes.push_back(i);
+         OperIdsWithFormMillTool.push_back(SetupOper->operationId());
          SetupOpersWithFormMillTool++;
-         
          SetupSimulOper = ActiveSetup->operations()->item(i + 1);
+         TemporarySimulatOperIds.push_back(SetupSimulOper->operationId());
          SetupSimulOper->name(SetupOper->name() + "-SIMUL");
          SimulatOpBotHeightOffsetParVal = (Ptr<FloatParameterValue>)SetupSimulOper->parameters()->itemByName("bottomHeight_offset")->value();
          SimulatOpBotHeightOffsetParVal->value(OpBotHeightOffset - OpToolTipOffset); //Unit cm
          //SetupSimulOper->parameters()->itemByName("bottomHeight_offset")->expression()
-         
-         DocCAM->generateToolpath(SetupSimulOper);
-         ui->messageBox("WAIT UNTIL OPERATION GENERATES");
+         GenToolPathChecker=DocCAM->generateToolpath(SetupSimulOper);
          SetupOper->isSuppressed(true);
-         
-         
-
          i++;
         
         }
         }
-        
-        
-        if (!DocCAM->checkAllToolpaths()) DocCAM->generateAllToolpaths(true);
-        
-        
-        
-            
-        
-        
-        
-        
+        PrgDlg->hide();
+        if (SimulateWithMachine==false)
+        {
+        Ptr<CommandDefinition> simCmd = ui->commandDefinitions()->itemById("IronSimulation");
+        if (simCmd)
+        {
+            simCmd->execute();
+
+        }
+        }
+        if (SimulateWithMachine == true)
+        {
+            Ptr<CommandDefinition> simCmd = ui->commandDefinitions()->itemById("IronMachineSimulation");
+            if (simCmd)
+            {
+                simCmd->execute();
+
+            }
+        }
         }
         
     
@@ -164,37 +179,51 @@ int CleanSimulatOperations()
         Ptr<Product> DocCAMProduct = DocProducts->itemByProductType("CAMProductType"); if (!DocCAMProduct) { ui->messageBox("THERE ARE NO CAM Operations in the Active Document"); return false; }
         Ptr<CAM> DocCAM = Ptr<CAM>(DocCAMProduct); if (!DocCAM) return false;
         Ptr<Setups> DocCAMSetups = DocCAM->setups(); if (!DocCAMSetups) return false;
-        Ptr<Setup> ActiveSetup = DocCAMSetups->item(0); if (!ActiveSetup) return false;
+        Ptr<Selections> ActiveSelects = ui->activeSelections(); if (!ActiveSelects) return false;
+        Ptr<Setup> ActiveSetup = nullptr;
+        if (ActiveSelects && ui->activeSelections()->count() > 0)
+        {
+            Ptr<Base> selectedObject = ui->activeSelections()->item(0)->entity();
+            ActiveSetup = selectedObject;
+        }
+        
 
         Ptr<OperationBase> SetupOper = nullptr;
         Ptr<OperationBase> SetupSimulOper = nullptr;
         string SetupOperName;
         string SetupSImulOperName;
-        //Ptr<FloatParameterValue> OpBotHeightOffsetParVal = nullptr;
-        //double OpBotHeightOffset = 0;
-        double OpToolTipOffset = 0;
+        
+        
         Ptr<FloatParameterValue> OpToolTipOffsetParVal = nullptr;
-        //for (int j = 0; j < OperWithFormMillToolIndexes.size(); j++)
-        for (int j = 0; j < ActiveSetup->operations()->count(); j++)
-
-        {
-            SetupOper = ActiveSetup->operations()->item(j);
-            if (SetupOper->parameters()->itemByName("tool_type")->expression() != "'form mill'") continue;
-            OpToolTipOffsetParVal = (Ptr<FloatParameterValue>)SetupOper->parameters()->itemByName("tool_tipOffset")->value();
-            OpToolTipOffset = OpToolTipOffsetParVal->value();//Unit cm
-
-            if (SetupOper->isSuppressed() && (SetupOper->parameters()->itemByName("tool_type")->expression() == "'form mill'") && OpToolTipOffset > 0)
-            {
-                SetupOper->isSuppressed(false);
-                DocCAM->generateToolpath(SetupOper);
+        int OperId = 0;
+        int SimulOperId = 0;
+        bool IsRestored = false;
+        
+        
+        for (int j = 0; j < OperIdsWithFormMillTool.size(); j++)
+        {   OperId = OperIdsWithFormMillTool.at(j);
+            SetupOper = ActiveSetup->operations()->itemByOperationId(OperId);
+           IsRestored = SetupOper->isSuppressed(false);
+           GenToolPathChecker = DocCAM->generateToolpath(SetupOper);
+            if (IsRestored != true)
+            {ui->messageBox("ERROR Restoring Operation " + SetupOper->name());
+             
             }
-            if ((SetupOper->name().find("-SIMUL") != -1) && (SetupOper->parameters()->itemByName("tool_type")->expression() == "'form mill'") && OpToolTipOffset > 0)
-                SetupOper->deleteMe();
-
-
-
-
         }
+        for (int k = 0; k < TemporarySimulatOperIds.size(); k++)
+        {
+            SimulOperId = TemporarySimulatOperIds.at(k);
+            SetupSimulOper = ActiveSetup->operations()->itemByOperationId(SimulOperId);
+            if (SetupSimulOper->deleteMe() != true) ui->messageBox("ERROR DELETING Operation " + SetupSimulOper->name());
+        }
+            
+            
+                OperIdsWithFormMillTool.clear();
+                TemporarySimulatOperIds.clear();
+
+
+
+        
     }
     catch (std::exception* e)
     {
