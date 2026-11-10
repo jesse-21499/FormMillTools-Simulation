@@ -57,12 +57,14 @@ class CommandTerminatedHandler : public adsk::core::ApplicationCommandEventHandl
 {public:
     void notify(const Ptr<ApplicationCommandEventArgs>& eventArgs) override
     {if (eventArgs->commandId() == "FormMillToolsSimulation")
-        {   bool RegenIsFinished = GenToolPathChecker->isGenerationCompleted();
+        { if   (GenToolPathChecker!=nullptr)
+    {
+          bool RegenIsFinished = GenToolPathChecker->isGenerationCompleted();
             while (!RegenIsFinished)
             {_sleep(500);
              RegenIsFinished = GenToolPathChecker->isGenerationCompleted();
             }
-            
+    }
           
         }
         // This fires when simulation's panel closes

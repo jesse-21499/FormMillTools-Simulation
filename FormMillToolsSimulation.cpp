@@ -78,9 +78,13 @@ int FormMillToolSimulation(bool SimulateWithMachine)
         Ptr<Setups> DocCAMSetups = DocCAM->setups(); if (!DocCAMSetups) return false;
         Ptr<Selections> ActiveSelects = ui->activeSelections(); if (!ActiveSelects) return false;
         Ptr<Setup> ActiveSetup = nullptr;
+        if (ui->activeSelections()->count() == 0) { ui->messageBox("SELECT SETUP"); return false; }
         if (ActiveSelects && ui->activeSelections()->count() > 0) 
         {Ptr<Base> selectedObject = ui->activeSelections()->item(0)->entity();
-         ActiveSetup = selectedObject;
+         
+        if (string(selectedObject->objectType()) == "adsk::cam::Setup") ActiveSetup = (Ptr<Setup>) selectedObject;
+        else { ui->messageBox("SELECT SETUP NOT OPERATION"); return false; }
+        //ActiveSetup = selectedObject;
         }
         //else { ui->messageBox("SELECT SETUP"); return false;}
         Ptr<OperationBase> SetupOper = nullptr;
@@ -135,7 +139,7 @@ int FormMillToolSimulation(bool SimulateWithMachine)
         if (simCmd)
         {
             simCmd->execute();
-
+            
         }
         }
         if (SimulateWithMachine == true)
@@ -144,7 +148,7 @@ int FormMillToolSimulation(bool SimulateWithMachine)
             if (simCmd)
             {
                 simCmd->execute();
-
+                
             }
         }
         }
@@ -184,7 +188,8 @@ int CleanSimulatOperations()
         if (ActiveSelects && ui->activeSelections()->count() > 0)
         {
             Ptr<Base> selectedObject = ui->activeSelections()->item(0)->entity();
-            ActiveSetup = selectedObject;
+            if (string(selectedObject->objectType())=="adsk::cam::Setup") ActiveSetup = (Ptr<Setup>) selectedObject;
+            else {ui->messageBox("SELECT SETUP NOT OPERATION"); return false;}
         }
         
 
